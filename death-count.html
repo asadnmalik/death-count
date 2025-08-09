@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js"></script>
+  <title>Death Tally — Firebase Counter</title>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --accent:#ef4444;
+      --muted:#94a3b8;
+      --glass: rgba(255,255,255,0.03);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;display:grid;place-items:center;gap:1rem;background:linear-gradient(180deg,var(--bg),#071024);color:#e6eef8;padding:2rem
+    }
+    .card{
+      width:min(720px,96%);
+      background:linear-gradient(180deg,var(--card),rgba(10,15,25,0.6));
+      border-radius:16px;padding:2rem;box-shadow:0 8px 30px rgba(2,6,23,0.6);backdrop-filter: blur(6px);
+    }
+    h1{margin:0 0 0.5rem;font-size:1.6rem}
+    .counter {
+      display:flex;align-items:center;justify-content:center;gap:1rem;padding:2rem;border-radius:12px;background:var(--glass);
+      margin:1rem 0;
+      box-shadow: inset 0 -2px 8px rgba(0,0,0,0.4);
+    }
+    .value{
+      font-size:6rem;line-height:1;font-weight:700;min-width:6ch;text-align:center;font-variant-numeric:tabular-nums;
+      text-shadow: 0 6px 30px rgba(0,0,0,0.6);
+    }
+    .controls{display:flex;flex-direction:column;gap:0.5rem}
+    button{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:0.6rem 1rem;border-radius:10px;color:inherit;font-size:1rem;cursor:pointer}
+    .big{padding:0.8rem 1.2rem;font-size:1.2rem}
+    .accent{background:linear-gradient(180deg,var(--accent),#b91c1c);border:none;color:white}
+    .muted{color:var(--muted);border-color:transparent;background:transparent}
+    .hint{color:var(--muted);font-size:0.95rem}
+    .row{display:flex;gap:0.5rem}
+    .kbd{display:inline-block;padding:0.1rem 0.45rem;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.03)}
+    footer{display:flex;justify-content:space-between;align-items:center;margin-top:1rem;color:var(--muted);font-size:0.95rem}
+    @media (max-width:520px){.value{font-size:4rem}}
+  </style>
+</head>
+<body>
+  <div class="card" role="application" aria-labelledby="title">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
+      <div>
+        <h1 id="title">Death Tally</h1>
+        <div class="hint">Use <span class="kbd">Arrow ↑</span> and <span class="kbd">Arrow ↓</span> to change the count. Click buttons or tap on mobile.</div>
+      </div>
+      <div class="controls">
+        <div class="row">
+          <button id="dec" aria-label="Decrement" title="Decrement">−</button>
+          <button id="inc" class="accent big" aria-label="Increment" title="Increment">+</button>
+          <button id="reset" class="muted" aria-label="Reset" title="Reset to zero">Reset</button>
+        </div>
+        <div class="row">
+          <button id="setZero" class="muted" title="Set to zero">Set 0</button>
+          <button id="share" class="muted" title="Copy shareable link">Share</button>
+          <button id="undo" class="muted" title="Undo last change">Undo</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="counter" aria-live="polite">
+      <div style="flex:1;text-align:center">
+        <div class="value" id="value">0</div>
+        <div class="hint">Total deaths</div>
+      </div>
+    </div>
+
+    <footer>
+      <div id="status">Connecting...</div>
+      <div>v1 — firebase</div>
+    </footer>
+  </div>
+
+  <!-- Firebase SDKs -->
+
+
+  <script>
+    // 🔹 1. Replace with your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyC55ZlNX7t1r0g6Uz_rRRznTH6Tb6qCJek",
+      authDomain: "death-counter-e4ff4.firebaseapp.com",
+      databaseURL: "https://death-counter-e4ff4-default-rtdb.firebaseio.com",
+      projectId: "death-counter-e4ff4",
+      storageBucket: "death-counter-e4ff4.firebasestorage.app",
+      messagingSenderId: "950795670086",
+      appId: "1:950795670086:web:1f365c769e407f1a587047",
+      measurementId: "G-BWFWWYK1PY"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const counterRef = db.ref("deathCounter");
+
+    const valueEl = document.getElementById('value');
+    const incBtn = document.getElementById('inc');
+    const decBtn = document.getElementById('dec');
+    const resetBtn = document.getElementById('reset');
+    const setZeroBtn = document.getElementById('setZero');
+    const shareBtn = document.getElementById('share');
+    const undoBtn = document.getElementById('undo');
+    const statusEl = document.getElementById('status');
+
+    let count = 0;
+    let history = [];
+
+    // 🔹 Listen to changes from Firebase
+    counterRef.on("value", snap => {
+      count = snap.val() || 0;
+      valueEl.textContent = count;
+      statusEl.textContent = "Synced with Firebase";
+    });
+
+    function updateCount(newVal) {
+      history.push(count);
+      counterRef.set(newVal);
+    }
+
+    incBtn.addEventListener('click', () => updateCount(count + 1));
+    decBtn.addEventListener('click', () => updateCount(count - 1));
+    resetBtn.addEventListener('click', () => {
+      if(confirm('Reset count to zero?')) updateCount(0);
+    });
+    setZeroBtn.addEventListener('click', () => updateCount(0));
+
+    undoBtn.addEventListener('click', () => {
+      if(history.length > 0) counterRef.set(history.pop());
+    });
+
+    shareBtn.addEventListener('click', async () => {
+      const url = new URL(location.href);
+      url.searchParams.set('count', String(count));
+      try {
+        await navigator.clipboard.writeText(url.toString());
+        statusEl.textContent = 'Share link copied';
+      } catch {
+        prompt('Copy this link:', url.toString());
+      }
+    });
+
+    // 🔹 Keyboard
+    window.addEventListener('keydown', e => {
+      if (e.key === 'ArrowUp') { e.preventDefault(); updateCount(count + 1); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); updateCount(count - 1); }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if(history.length) counterRef.set(history.pop());
+      }
+    });
+
+    // 🔹 Touch swipe
+    let touchStartY = null;
+    window.addEventListener('touchstart', e => {
+      if(e.touches[0]) touchStartY = e.touches[0].clientY;
+    }, {passive:true});
+    window.addEventListener('touchend', e => {
+      if(touchStartY == null) return;
+      const y = e.changedTouches[0]?.clientY;
+      const dy = touchStartY - y;
+      if(Math.abs(dy) > 40) {
+        if(dy > 0) updateCount(count + 1);
+        else updateCount(count - 1);
+      }
+      touchStartY = null;
+    }, {passive:true});
+  </script>
+</body>
+</html>
