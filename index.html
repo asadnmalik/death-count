@@ -3,10 +3,6 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js"></script>
-
   <title>Death Tally — Firebase Counter</title>
   <style>
     :root{
@@ -83,11 +79,12 @@
     </footer>
   </div>
 
-  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-database.js";
 
-
-  <script>
-    // 🔹 1. Replace with your Firebase config
+    // Your Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyC55ZlNX7t1r0g6Uz_rRRznTH6Tb6qCJek",
       authDomain: "death-counter-e4ff4.firebaseapp.com",
@@ -99,9 +96,10 @@
       measurementId: "G-BWFWWYK1PY"
     };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const counterRef = db.ref("deathCounter");
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const db = getDatabase(app);
+    const counterRef = ref(db, 'deathCounter');
 
     const valueEl = document.getElementById('value');
     const incBtn = document.getElementById('inc');
@@ -115,16 +113,16 @@
     let count = 0;
     let history = [];
 
-    // 🔹 Listen to changes from Firebase
-    counterRef.on("value", snap => {
-      count = snap.val() || 0;
+    // Listen for realtime changes
+    onValue(counterRef, (snapshot) => {
+      count = snapshot.val() || 0;
       valueEl.textContent = count;
       statusEl.textContent = "Synced with Firebase";
     });
 
     function updateCount(newVal) {
       history.push(count);
-      counterRef.set(newVal);
+      set(counterRef, newVal);
     }
 
     incBtn.addEventListener('click', () => updateCount(count + 1));
@@ -135,7 +133,7 @@
     setZeroBtn.addEventListener('click', () => updateCount(0));
 
     undoBtn.addEventListener('click', () => {
-      if(history.length > 0) counterRef.set(history.pop());
+      if(history.length > 0) set(counterRef, history.pop());
     });
 
     shareBtn.addEventListener('click', async () => {
@@ -149,17 +147,15 @@
       }
     });
 
-    // 🔹 Keyboard
     window.addEventListener('keydown', e => {
       if (e.key === 'ArrowUp') { e.preventDefault(); updateCount(count + 1); }
       if (e.key === 'ArrowDown') { e.preventDefault(); updateCount(count - 1); }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        if(history.length) counterRef.set(history.pop());
+        if(history.length) set(counterRef, history.pop());
       }
     });
 
-    // 🔹 Touch swipe
     let touchStartY = null;
     window.addEventListener('touchstart', e => {
       if(e.touches[0]) touchStartY = e.touches[0].clientY;
